@@ -577,11 +577,21 @@ export interface StoredCredentialBinding {
   updatedAt: string;
 }
 
+export interface VaultAccountLink {
+  entryId: string;
+  accountId: string;
+}
+
 export interface VaultAccount {
   id: string;
   username: string;
   hasPassword: boolean;
+  link?: VaultAccountLink;
 }
+
+export type VaultAccountSummary = Omit<VaultAccount, 'link'> & {
+  link?: VaultAccountLink & { entryName: string | null };
+};
 
 export interface VaultToken {
   id: string;
@@ -614,13 +624,14 @@ export interface VaultSecrets {
 
 export type VaultEntrySummary = Omit<
   StoredVaultEntry,
-  'owner' | 'encryptedSecrets' | 'tokens' | 'hasBearerToken' | 'starred'
-> & { tokens: VaultToken[]; starred: boolean };
+  'owner' | 'encryptedSecrets' | 'accounts' | 'tokens' | 'hasBearerToken' | 'starred'
+> & { accounts: VaultAccountSummary[]; tokens: VaultToken[]; starred: boolean };
 
 export interface VaultAccountInput {
   id?: string;
-  username: string;
+  username?: string;
   password?: string;
+  link?: VaultAccountLink | null;
 }
 
 export interface VaultTokenInput {

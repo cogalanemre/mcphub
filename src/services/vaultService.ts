@@ -14,6 +14,8 @@ import type {
   StoredVaultEntry,
   VaultAccount,
   VaultAccountInput,
+  VaultAccountLink,
+  VaultAccountSummary,
   VaultEntryInput,
   VaultEntrySummary,
   VaultSecrets,
@@ -164,7 +166,26 @@ const decryptSecrets = async (entry: StoredVaultEntry): Promise<VaultSecrets> =>
   }
 };
 
-export const toVaultSummary = (entry: StoredVaultEntry): VaultEntrySummary => ({
+const summarizeAccount = (
+  account: VaultAccount,
+  sources: ReadonlyMap<string, StoredVaultEntry>,
+): VaultAccountSummary => {
+  const { id, username, hasPassword, link } = account;
+  if (!link) return { id, username, hasPassword };
+  const source = sources.get(link.entryId);
+  const target = source?.accounts.find((item) => item.id === link.accountId && !item.link);
+  return {
+    id,
+    username: target?.username ?? '',
+    hasPassword: target?.hasPassword ?? false,
+    link: { entryId: link.entryId, accountId: link.accountId, entryName: source?.name ?? null },
+  };
+};
+
+export const toVaultSummary = (
+  entry: StoredVaultEntry,
+  sources: ReadonlyMap<string, StoredVaultEntry> = new Map(),
+): VaultEntrySummary => ({
   id: entry.id,
   name: entry.name,
   description: entry.description ?? null,
@@ -173,12 +194,35 @@ export const toVaultSummary = (entry: StoredVaultEntry): VaultEntrySummary => ({
   host: entry.host ?? null,
   port: entry.port ?? null,
   image: entry.image ?? null,
-  accounts: entry.accounts.map(({ id, username, hasPassword }) => ({ id, username, hasPassword })),
+  accounts: entry.accounts.map((account) => summarizeAccount(account, sources)),
   tokens: storedTokens(entry).map(({ id, name }) => ({ id, name })),
   starred: entry.starred === true,
   createdAt: entry.createdAt,
   updatedAt: entry.updatedAt,
 });
+
+const validateLink = async (
+  owner: string,
+  entryId: string | undefined,
+  raw: unknown,
+): Promise<VaultAccountLink> => {
+  const link = raw as Partial<VaultAccountLink>;
+  if (
+    !link ||
+    typeof link !== 'object' ||
+    typeof link.entryId !== 'string' ||
+    typeof link.accountId !== 'string'
+  )
+    throw new VaultError('An account link needs an entryId and an accountId');
+  if (link.entryId === entryId) throw new VaultError('An account cannot link to its own entry');
+  const source = await getVaultEntryDao().findById(link.entryId);
+  if (!source || source.owner !== owner)
+    throw new VaultError('The linked vault entry was not found');
+  const target = source.accounts.find((account) => account.id === link.accountId);
+  if (!target) throw new VaultError('The linked account was not found');
+  if (target.link) throw new VaultError('Link to the original account, not to another link');
+  return { entryId: link.entryId, accountId: link.accountId };
+};
 
 const buildEntry = async (
   owner: string,
@@ -193,7 +237,7 @@ const buildEntry = async (
 
   const rawAccounts =
     body.accounts === undefined && current
-      ? current.accounts.map(({ id, username }) => ({ id, username }))
+      ? current.accounts.map(({ id, username, link }) => ({ id, username, link }))
       : (body.accounts ?? []);
   if (!Array.isArray(rawAccounts)) throw new VaultError('accounts must be an array');
   if (rawAccounts.length > VAULT_LIMITS.accounts)
@@ -208,6 +252,16 @@ const buildEntry = async (
   const usedIds = new Set<string>();
   for (const raw of rawAccounts as VaultAccountInput[]) {
     if (!raw || typeof raw !== 'object') throw new VaultError('Each account must be an object');
+    if (raw.link) {
+      const link = await validateLink(owner, current?.id, raw.link);
+      const linkedId =
+        typeof raw.id === 'string' && knownAccounts.has(raw.id) && !usedIds.has(raw.id)
+          ? raw.id
+          : randomUUID();
+      usedIds.add(linkedId);
+      accounts.push({ id: linkedId, username: '', hasPassword: false, link });
+      continue;
+    }
     const username = optionalText(raw.username, 'username', VAULT_LIMITS.username);
     const password = normalizeSecret(raw.password, 'password');
     if (!username && !password && !(typeof raw.id === 'string' && knownAccounts.has(raw.id)))
@@ -275,6 +329,41 @@ const findOwned = async (owner: string, id: string): Promise<StoredVaultEntry> =
   const entry = await getVaultEntryDao().findById(id);
   if (!entry || entry.owner !== owner) throw new VaultNotFoundError('Vault entry not found');
   return entry;
+};
+
+const linkSources = async (
+  owner: string,
+  entries: StoredVaultEntry[],
+): Promise<Map<string, StoredVaultEntry>> => {
+  const sources = new Map(entries.map((entry) => [entry.id, entry]));
+  for (const entry of entries)
+    for (const account of entry.accounts) {
+      const sourceId = account.link?.entryId;
+      if (!sourceId || sources.has(sourceId)) continue;
+      const source = await getVaultEntryDao().findById(sourceId);
+      if (source?.owner === owner) sources.set(sourceId, source);
+    }
+  return sources;
+};
+
+const summarize = async (owner: string, entry: StoredVaultEntry): Promise<VaultEntrySummary> =>
+  toVaultSummary(entry, await linkSources(owner, [entry]));
+
+const assertNotLinked = async (owner: string, entryId: string, kept?: StoredVaultEntry) => {
+  const own = new Set(
+    (kept?.accounts ?? []).filter((account) => !account.link).map((account) => account.id),
+  );
+  const blocked = (await getVaultEntryDao().findByOwner(owner))
+    .filter((entry) => entry.id !== entryId)
+    .flatMap((entry) =>
+      entry.accounts
+        .filter((account) => account.link?.entryId === entryId && !own.has(account.link.accountId))
+        .map(() => entry.name),
+    );
+  if (blocked.length)
+    throw new VaultError(
+      `${kept ? 'A removed account' : 'This entry'} is linked from these vault entries: ${Array.from(new Set(blocked)).join(', ')}. Remove those links first`,
+    );
 };
 
 export const findServersUsingVaultEntry = async (
@@ -351,11 +440,14 @@ const byName = (a: VaultEntrySummary, b: VaultEntrySummary) =>
   Number(b.starred) - Number(a.starred) ||
   a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
 
-export const listVaultEntries = async (owner: string): Promise<VaultEntrySummary[]> =>
-  (await getVaultEntryDao().findByOwner(owner)).map(toVaultSummary).sort(byName);
+export const listVaultEntries = async (owner: string): Promise<VaultEntrySummary[]> => {
+  const entries = await getVaultEntryDao().findByOwner(owner);
+  const sources = await linkSources(owner, entries);
+  return entries.map((entry) => toVaultSummary(entry, sources)).sort(byName);
+};
 
 export const getVaultEntry = async (owner: string, id: string): Promise<VaultEntrySummary> =>
-  toVaultSummary(await findOwned(owner, id));
+  summarize(owner, await findOwned(owner, id));
 
 export const createVaultEntry = async (
   owner: string,
@@ -363,7 +455,7 @@ export const createVaultEntry = async (
 ): Promise<VaultEntrySummary> => {
   const entry = await buildEntry(owner, input);
   await getVaultEntryDao().save(entry);
-  return toVaultSummary(entry);
+  return summarize(owner, entry);
 };
 
 export const updateVaultEntry = async (
@@ -380,11 +472,12 @@ export const updateVaultEntry = async (
       .filter((tokenId) => !kept.has(tokenId)),
   );
   if (removed.size) await assertUnused(owner, id, removed);
+  await assertNotLinked(owner, id, entry);
   const [before, after] = await Promise.all([decryptSecrets(current), decryptSecrets(entry)]);
   await getVaultEntryDao().save(entry);
   if (JSON.stringify(before.tokens) !== JSON.stringify(after.tokens))
     vaultEvents.emit('tokensChanged', { owner, entryId: id } satisfies VaultTokensChanged);
-  return toVaultSummary(entry);
+  return summarize(owner, entry);
 };
 
 export const setVaultEntryStarred = async (
@@ -395,12 +488,13 @@ export const setVaultEntryStarred = async (
   if (typeof starred !== 'boolean') throw new VaultError('starred must be a boolean');
   const entry = { ...(await findOwned(owner, id)), starred };
   await getVaultEntryDao().save(entry);
-  return toVaultSummary(entry);
+  return summarize(owner, entry);
 };
 
 export const deleteVaultEntry = async (owner: string, id: string): Promise<void> => {
   await findOwned(owner, id);
   await assertUnused(owner, id);
+  await assertNotLinked(owner, id);
   await getVaultEntryDao().delete(id);
 };
 
@@ -408,7 +502,34 @@ export const revealVaultSecrets = async (owner: string, id: string): Promise<Vau
   const entry = await findOwned(owner, id);
   const secrets = await decryptSecrets(entry);
   const passwords: Record<string, string> = {};
+  const sources = new Map<
+    string,
+    Promise<{ entry: StoredVaultEntry; secrets: VaultSecrets } | null>
+  >();
+  const sourceOf = (entryId: string) => {
+    if (!sources.has(entryId))
+      sources.set(
+        entryId,
+        (async () => {
+          const source = await getVaultEntryDao().findById(entryId);
+          return source && source.owner === owner
+            ? { entry: source, secrets: await decryptSecrets(source) }
+            : null;
+        })(),
+      );
+    return sources.get(entryId)!;
+  };
   for (const account of entry.accounts) {
+    const link = account.link;
+    if (link) {
+      const source = await sourceOf(link.entryId);
+      const target = source?.entry.accounts.find(
+        (item) => item.id === link.accountId && !item.link,
+      );
+      const password = target ? source?.secrets.passwords[target.id] : undefined;
+      if (password) passwords[account.id] = password;
+      continue;
+    }
     const password = secrets.passwords[account.id];
     if (password) passwords[account.id] = password;
   }

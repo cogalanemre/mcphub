@@ -404,4 +404,118 @@ describe('vaultService', () => {
       }
     });
   });
+
+  describe('linked accounts', () => {
+    const ldap = () =>
+      createVaultEntry('alice', {
+        name: 'LDAP',
+        accounts: [{ username: 'emre', password: 'ldap-secret' }],
+      });
+
+    it('reads the username and password from the source account', async () => {
+      const source = await ldap();
+      const [account] = source.accounts;
+      const jenkins = await createVaultEntry('alice', {
+        name: 'Jenkins',
+        accounts: [
+          {
+            username: 'ignored',
+            password: 'ignored',
+            link: { entryId: source.id, accountId: account.id },
+          },
+          { username: 'local', password: 'local-secret' },
+        ],
+      });
+
+      expect(jenkins.accounts[0]).toEqual({
+        id: expect.any(String),
+        username: 'emre',
+        hasPassword: true,
+        link: { entryId: source.id, accountId: account.id, entryName: 'LDAP' },
+      });
+      expect(await revealVaultSecrets('alice', jenkins.id)).toEqual({
+        passwords: {
+          [jenkins.accounts[0].id]: 'ldap-secret',
+          [jenkins.accounts[1].id]: 'local-secret',
+        },
+        tokens: {},
+      });
+      const raw = JSON.parse(fs.readFileSync(getVaultStorePath(), 'utf8'));
+      expect(JSON.stringify(raw)).not.toMatch(/ignored/);
+    });
+
+    it('follows changes made to the source account', async () => {
+      const source = await ldap();
+      const [account] = source.accounts;
+      const jenkins = await createVaultEntry('alice', {
+        name: 'Jenkins',
+        accounts: [{ link: { entryId: source.id, accountId: account.id } }],
+      });
+
+      await updateVaultEntry('alice', source.id, {
+        name: 'LDAP',
+        accounts: [{ id: account.id, username: 'emre.c', password: 'rotated' }],
+      });
+
+      const listed = (await listVaultEntries('alice')).find((entry) => entry.id === jenkins.id)!;
+      expect(listed.accounts[0].username).toBe('emre.c');
+      expect((await revealVaultSecrets('alice', jenkins.id)).passwords[listed.accounts[0].id]).toBe(
+        'rotated',
+      );
+      const kept = await updateVaultEntry('alice', jenkins.id, { name: 'Jenkins prod' });
+      expect(kept.accounts[0].link?.accountId).toBe(account.id);
+    });
+
+    it('rejects links it cannot keep consistent', async () => {
+      const source = await ldap();
+      const [account] = source.accounts;
+      const linked = await createVaultEntry('alice', {
+        name: 'Jenkins',
+        accounts: [{ link: { entryId: source.id, accountId: account.id } }],
+      });
+      const create = (link: unknown) =>
+        createVaultEntry('alice', { name: 'x', accounts: [{ link }] });
+
+      await expect(create({ entryId: source.id })).rejects.toThrow(/entryId and an accountId/);
+      await expect(create({ entryId: source.id, accountId: 'missing' })).rejects.toThrow(
+        /account was not found/,
+      );
+      await expect(
+        create({ entryId: linked.id, accountId: linked.accounts[0].id }),
+      ).rejects.toThrow(/original account/);
+      await expect(
+        createVaultEntry('bob', {
+          name: 'x',
+          accounts: [{ link: { entryId: source.id, accountId: account.id } }],
+        }),
+      ).rejects.toThrow(/entry was not found/);
+      await expect(
+        updateVaultEntry('alice', source.id, {
+          name: 'LDAP',
+          accounts: [
+            { id: account.id, username: 'emre' },
+            { link: { entryId: source.id, accountId: account.id } },
+          ],
+        }),
+      ).rejects.toThrow(/own entry/);
+    });
+
+    it('keeps source accounts that other entries link to', async () => {
+      const source = await ldap();
+      const [account] = source.accounts;
+      const jenkins = await createVaultEntry('alice', {
+        name: 'Jenkins',
+        accounts: [{ link: { entryId: source.id, accountId: account.id } }],
+      });
+
+      await expect(deleteVaultEntry('alice', source.id)).rejects.toThrow(/Jenkins/);
+      await expect(
+        updateVaultEntry('alice', source.id, { name: 'LDAP', accounts: [] }),
+      ).rejects.toThrow(/Jenkins/);
+
+      await deleteVaultEntry('alice', jenkins.id);
+      await deleteVaultEntry('alice', source.id);
+      expect(await listVaultEntries('alice')).toEqual([]);
+    });
+  });
 });

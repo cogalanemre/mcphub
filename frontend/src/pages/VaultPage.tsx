@@ -91,6 +91,7 @@ const VaultPage: React.FC = () => {
 
   const handleSaved = (saved: VaultEntry) => {
     setEntries((current) => [...current.filter((entry) => entry.id !== saved.id), saved]);
+    void load();
     showToast(t(editing ? 'vault.updated' : 'vault.created'), 'success');
     setEditing(null);
     setIsAdding(false);
@@ -265,6 +266,7 @@ const VaultPage: React.FC = () => {
             (value) => tagOptions.find((option) => option.value === value)?.label ?? value,
           )}
           tagSuggestions={tagOptions.map((option) => option.label)}
+          linkableEntries={entries}
           onSaved={handleSaved}
           onCancel={() => {
             setEditing(null);

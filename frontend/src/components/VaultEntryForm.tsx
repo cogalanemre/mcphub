@@ -1,6 +1,6 @@
 import React, { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ImagePlus, Plus, Trash2, X } from 'lucide-react';
+import { ImagePlus, Link2, Plus, Trash2, X } from 'lucide-react';
 import type { VaultEntry, VaultEntryInput } from '@/types';
 import TagInput from './ui/TagInput';
 import {
@@ -13,6 +13,7 @@ import {
 import { resizeImageToDataUrl } from '@/utils/vaultFilters';
 import { createVaultEntry, updateVaultEntry } from '@/services/vaultService';
 import VaultAvatar from './VaultAvatar';
+import VaultAccountLinkPicker from './VaultAccountLinkPicker';
 
 interface AccountRow {
   key: string;
@@ -20,6 +21,7 @@ interface AccountRow {
   username: string;
   password: string;
   hasPassword: boolean;
+  link?: { entryId: string; accountId: string; entryName: string | null };
 }
 
 interface TokenRow {
@@ -34,6 +36,7 @@ interface VaultEntryFormProps {
   entry?: VaultEntry | null;
   defaultTags?: string[];
   tagSuggestions: string[];
+  linkableEntries: VaultEntry[];
   onSaved: (entry: VaultEntry) => void;
   onCancel: () => void;
 }
@@ -59,6 +62,7 @@ const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
   entry,
   defaultTags,
   tagSuggestions,
+  linkableEntries,
   onSaved,
   onCancel,
 }) => {
@@ -82,6 +86,7 @@ const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
           username: account.username,
           password: '',
           hasPassword: account.hasPassword,
+          link: account.link,
         }))
       : [emptyRow()],
   );
@@ -136,11 +141,11 @@ const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
       host,
       port,
       image,
-      accounts: accounts.map(({ id, username, password }) => ({
-        id,
-        username,
-        password: password || undefined,
-      })),
+      accounts: accounts.map(({ id, username, password, link }) =>
+        link
+          ? { id, username: '', link: { entryId: link.entryId, accountId: link.accountId } }
+          : { id, username, password: password || undefined },
+      ),
       tokens: tokens.map(({ id, name, token }) => ({ id, name, token: token || undefined })),
     };
 
@@ -321,13 +326,33 @@ const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
             title={t('vault.sectionAccounts')}
             description={t('vault.accountsHint')}
             action={
-              <button
-                type="button"
-                className="hub-btn sm"
-                onClick={() => setAccounts((rows) => [...rows, emptyRow()])}
-              >
-                <Plus size={12} /> {t('vault.addAccount')}
-              </button>
+              <div className="flex items-center gap-2">
+                <VaultAccountLinkPicker
+                  entries={linkableEntries}
+                  excludeEntryId={entry?.id}
+                  onPick={(source, account) =>
+                    setAccounts((rows) => [
+                      ...rows.filter(
+                        (row) => row.id || row.link || row.username.trim() || row.password,
+                      ),
+                      {
+                        key: nextRowKey(),
+                        username: account.username,
+                        password: '',
+                        hasPassword: account.hasPassword,
+                        link: { entryId: source.id, accountId: account.id, entryName: source.name },
+                      },
+                    ])
+                  }
+                />
+                <button
+                  type="button"
+                  className="hub-btn sm"
+                  onClick={() => setAccounts((rows) => [...rows, emptyRow()])}
+                >
+                  <Plus size={12} /> {t('vault.addAccount')}
+                </button>
+              </div>
             }
           >
             {accounts.length === 0 ? (
@@ -336,24 +361,46 @@ const VaultEntryForm: React.FC<VaultEntryFormProps> = ({
               <div className="space-y-2">
                 {accounts.map((row, index) => (
                   <div key={row.key} className="flex items-center gap-2">
-                    <input
-                      value={row.username}
-                      onChange={(event) => updateAccount(row.key, { username: event.target.value })}
-                      placeholder={t('vault.username')}
-                      aria-label={`${t('vault.username')} ${index + 1}`}
-                      autoComplete="off"
-                      className={`${FORM_CONTROL_CLASS} flex-1`}
-                    />
-                    <PasswordInput
-                      value={row.password}
-                      onChange={(event) => updateAccount(row.key, { password: event.target.value })}
-                      placeholder={
-                        row.hasPassword ? t('vault.passwordStored') : t('vault.password')
-                      }
-                      aria-label={`${t('vault.password')} ${index + 1}`}
-                      autoComplete="new-password"
-                      className="flex-1"
-                    />
+                    {row.link ? (
+                      <div
+                        className={`${FORM_CONTROL_CLASS} flex-[2] min-w-0 flex items-center gap-2`}
+                      >
+                        <Link2 size={13} className="flex-shrink-0 text-[var(--hub-accent)]" />
+                        <span className="truncate text-[var(--hub-ink)]">
+                          {row.username || t('vault.noUsername')}
+                        </span>
+                        <span className="truncate text-[var(--hub-ink-3)]">
+                          {t('vault.linkedFrom', {
+                            name: row.link.entryName ?? t('vault.linkMissing'),
+                          })}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          value={row.username}
+                          onChange={(event) =>
+                            updateAccount(row.key, { username: event.target.value })
+                          }
+                          placeholder={t('vault.username')}
+                          aria-label={`${t('vault.username')} ${index + 1}`}
+                          autoComplete="off"
+                          className={`${FORM_CONTROL_CLASS} flex-1`}
+                        />
+                        <PasswordInput
+                          value={row.password}
+                          onChange={(event) =>
+                            updateAccount(row.key, { password: event.target.value })
+                          }
+                          placeholder={
+                            row.hasPassword ? t('vault.passwordStored') : t('vault.password')
+                          }
+                          aria-label={`${t('vault.password')} ${index + 1}`}
+                          autoComplete="new-password"
+                          className="flex-1"
+                        />
+                      </>
+                    )}
                     <button
                       type="button"
                       className="hub-icon-btn sm flex-shrink-0"

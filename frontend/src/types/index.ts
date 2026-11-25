@@ -221,10 +221,16 @@ export interface CredentialSlot {
   label?: string;
 }
 
+export interface VaultAccountLink {
+  entryId: string;
+  accountId: string;
+}
+
 export interface VaultAccount {
   id: string;
   username: string;
   hasPassword: boolean;
+  link?: VaultAccountLink & { entryName: string | null };
 }
 
 export interface VaultToken {
@@ -257,6 +263,7 @@ export interface VaultAccountInput {
   id?: string;
   username: string;
   password?: string;
+  link?: VaultAccountLink;
 }
 
 export interface VaultTokenInput {

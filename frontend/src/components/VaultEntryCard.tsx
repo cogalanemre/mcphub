@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronRight, Copy, Edit, Eye, EyeOff, Star, Trash2 } from 'lucide-react';
+import { Check, ChevronRight, Copy, Edit, Eye, EyeOff, Link2, Star, Trash2 } from 'lucide-react';
 import type { VaultEntry, VaultSecrets } from '@/types';
 import { revealVaultSecrets } from '@/services/vaultService';
 import { copyText } from '@/utils/clipboard';
@@ -282,6 +282,17 @@ const VaultEntryCard: React.FC<VaultEntryCardProps> = ({
               ) : (
                 <span className="text-[12px] italic text-[var(--hub-ink-3)]">
                   {t('vault.noUsername')}
+                </span>
+              )}
+              {account.link && (
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] truncate text-[var(--hub-ink-3)]"
+                  title={t('vault.linkedFrom', {
+                    name: account.link.entryName ?? t('vault.linkMissing'),
+                  })}
+                >
+                  <Link2 size={11} className="flex-shrink-0" />
+                  {account.link.entryName ?? t('vault.linkMissing')}
                 </span>
               )}
               <span className="text-[var(--hub-ink-3)]" aria-hidden="true">
