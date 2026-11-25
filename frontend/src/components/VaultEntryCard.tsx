@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronRight, Copy, Edit, Eye, EyeOff, Link2, Star, Trash2 } from 'lucide-react';
 import type { VaultEntry, VaultSecrets } from '@/types';
@@ -59,6 +59,7 @@ interface VaultEntryCardProps {
   onToggleStar: (entry: VaultEntry) => void;
   onTagClick: (tag: string) => void;
   tagRank: ReadonlyMap<string, number>;
+  revision: number;
 }
 
 const VaultEntryCard: React.FC<VaultEntryCardProps> = ({
@@ -68,12 +69,33 @@ const VaultEntryCard: React.FC<VaultEntryCardProps> = ({
   onToggleStar,
   onTagClick,
   tagRank,
+  revision,
 }) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [secrets, setSecrets] = useState<VaultSecrets | null>(null);
   const [visible, setVisible] = useState<Record<string, boolean>>({});
   const [revealError, setRevealError] = useState<string | null>(null);
+  const seenRevision = useRef(revision);
+
+  useEffect(() => {
+    if (seenRevision.current === revision) return;
+    seenRevision.current = revision;
+    if (!secrets) return;
+    let active = true;
+    revealVaultSecrets(entry.id)
+      .then((loaded) => {
+        if (active) setSecrets(loaded);
+      })
+      .catch(() => {
+        if (!active) return;
+        setSecrets(null);
+        setVisible({});
+      });
+    return () => {
+      active = false;
+    };
+  }, [revision, secrets, entry.id]);
   const endpoint = vaultEndpoint(entry);
   const counts = [
     entry.accounts.length > 0 && t('vault.accountCount', { count: entry.accounts.length }),

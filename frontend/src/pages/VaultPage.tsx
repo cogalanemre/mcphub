@@ -20,6 +20,7 @@ const VaultPage: React.FC = () => {
   const { t } = useTranslation();
   const { showToast } = useToast();
   const [entries, setEntries] = useState<VaultEntry[]>([]);
+  const [revision, setRevision] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -58,6 +59,7 @@ const VaultPage: React.FC = () => {
     setIsLoading(true);
     try {
       setEntries(await listVaultEntries());
+      setRevision((value) => value + 1);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t('vault.loadError'));
@@ -249,6 +251,7 @@ const VaultPage: React.FC = () => {
               onDelete={setDeleting}
               onToggleStar={handleToggleStar}
               tagRank={tagRank}
+              revision={revision}
               onTagClick={(value) => {
                 const key = vaultTagKey(value);
                 if (!selectedTags.includes(key)) setSelectedTags([...selectedTags, key]);
