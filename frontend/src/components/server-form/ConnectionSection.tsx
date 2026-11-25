@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { EnvVar, OpenApiToolStats, ServerFormData } from '@/types';
+import type { EnvVar, OpenApiToolStats, ServerFormData, VaultEntry } from '@/types';
+import { listVaultEntries } from '@/services/vaultService';
+import VaultHeaderValue from './VaultHeaderValue';
 import TagInput from '../ui/TagInput';
 import { SERVER_NAME_MAX_LENGTH, SERVER_NAME_PATTERN } from '../../utils/serverName';
 import { OPENAPI_STATS_WARN_TOKENS, formatBytes, formatTokens } from '../../utils/contextCost';
@@ -63,6 +65,19 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
   onFieldMutated,
 }) => {
   const { t } = useTranslation();
+  const [vaultEntries, setVaultEntries] = useState<VaultEntry[] | null>(null);
+  const usesHttpHeaders = serverType === 'sse' || serverType === 'streamable-http';
+
+  useEffect(() => {
+    if (!usesHttpHeaders) return;
+    let active = true;
+    listVaultEntries()
+      .then((entries) => active && setVaultEntries(entries))
+      .catch(() => active && setVaultEntries(null));
+    return () => {
+      active = false;
+    };
+  }, [usesHttpHeaders]);
 
   return (
     <div className="space-y-4">
@@ -351,6 +366,15 @@ export const ConnectionSection: React.FC<ConnectionSectionProps> = ({
                 getRemoveAriaLabel={(index) =>
                   t('server.removeHeader', { index, defaultValue: `Remove header ${index}` })
                 }
+                renderValue={(item, onValueChange) => (
+                  <VaultHeaderValue
+                    value={item.value}
+                    headerName={item.key}
+                    placeholder="Bearer token..."
+                    entries={vaultEntries}
+                    onChange={onValueChange}
+                  />
+                )}
               />
 
               <KeyValueListEditor

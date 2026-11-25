@@ -7,7 +7,7 @@ import { resolveInstallBaseUrl } from '../utils/installBaseUrl.js';
 import { filterModelVisibleTools } from '../utils/mcpApps.js';
 import { applyHiddenParams } from '../utils/toolConfig.js';
 import { filterHostedTools } from './hostedAuthService.js';
-import { isReservedStagingName } from './fileStaging/tools.js';
+import { isReservedHubToolName } from './hubToolNames.js';
 import { normalizeToolNameForServer } from '../utils/mcpRouteNames.js';
 import { RequestContextService } from './requestContextService.js';
 import type { getToolPolicy } from './toolPolicyService.js';
@@ -50,8 +50,8 @@ export const getScopedOpenAPITools = (
     const rawName = normalizeToolNameForServer(serverName, tool.name);
     return (
       tool.enabled !== false &&
-      !isReservedStagingName(rawName) &&
-      !isReservedStagingName(tool.name) &&
+      !isReservedHubToolName(rawName) &&
+      !isReservedHubToolName(tool.name) &&
       !['search_tools', 'describe_tool', 'call_tool'].includes(tool.name) &&
       (!Array.isArray(allowed) || allowed.includes(rawName))
     );

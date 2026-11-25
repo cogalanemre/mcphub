@@ -2262,6 +2262,7 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
       mcpRouter,
       nameSeparator,
       normalizeToolNames,
+      vaultMcpTools,
       dashboardName,
       enableSessionRebuild,
       oauthServer,
@@ -2412,6 +2413,11 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    if (vaultMcpTools !== undefined && typeof vaultMcpTools !== 'boolean') {
+      res.status(400).json({ success: false, message: 'vaultMcpTools must be a boolean' });
+      return;
+    }
+
     const hasNameSeparatorUpdate = typeof nameSeparator === 'string';
 
     const hasSessionRebuildUpdate = typeof enableSessionRebuild === 'boolean';
@@ -2462,6 +2468,7 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
       !hasMcpRouterUpdate &&
       !hasNameSeparatorUpdate &&
       normalizeToolNames === undefined &&
+      vaultMcpTools === undefined &&
       dashboardName === undefined &&
       !hasSessionRebuildUpdate &&
       !hasOAuthServerUpdate &&
@@ -3121,6 +3128,10 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
 
     if (typeof normalizeToolNames === 'boolean') {
       systemConfig.normalizeToolNames = normalizeToolNames;
+    }
+
+    if (typeof vaultMcpTools === 'boolean') {
+      systemConfig.vaultMcpTools = vaultMcpTools;
     }
 
     if (typeof nameSeparator === 'string') {

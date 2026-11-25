@@ -31,3 +31,4 @@ export * from './DatabaseDaoFactory.js';
 
 export * from './OAuthApprovalDao.js';
 export * from './PasskeyDao.js';
+export * from './VaultEntryDao.js';

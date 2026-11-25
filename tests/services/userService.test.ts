@@ -9,6 +9,7 @@ const mockUpdatePassword = jest.fn();
 const mockDelete = jest.fn();
 const mockFindAdmins = jest.fn();
 const mockDeleteBearerKeysByOwner = jest.fn();
+const mockDeleteVaultEntriesByOwner = jest.fn();
 const mockFindServers = jest.fn();
 const mockUpdateServer = jest.fn();
 const mockUpdateServerVisibility = jest.fn();
@@ -17,6 +18,7 @@ jest.mock('../../src/services/mcpService.js', () => ({ updateServerInfoVisibilit
 jest.mock('../../src/dao/index.js', () => ({
   getOAuthApprovalDao: () => ({ deleteByUsername: jest.fn() }),
   getPasskeyDao: () => ({ deleteByUsername: jest.fn() }),
+  getVaultEntryDao: () => ({ deleteByOwner: mockDeleteVaultEntriesByOwner }),
   getGroupDao: () => ({ findAll: async () => [] }),
   getServerDao: () => ({ findAll: mockFindServers, update: mockUpdateServer }),
   getUserDao: jest.fn(() => ({
@@ -162,6 +164,7 @@ describe('userService', () => {
       expect(result).toBe(true);
       expect(mockDelete).toHaveBeenCalledWith('user1');
       expect(mockDeleteBearerKeysByOwner).toHaveBeenCalledWith('user1');
+      expect(mockDeleteVaultEntriesByOwner).toHaveBeenCalledWith('user1');
     });
 
     it('should not delete the last admin', async () => {

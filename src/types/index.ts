@@ -332,6 +332,7 @@ export interface SystemConfig {
     baseUrl?: string; // Base URL for MCPRouter API (default: https://api.mcprouter.to/v1)
   };
   normalizeToolNames?: boolean; // Opt-in OpenAI-compatible downstream tool names (default: false)
+  vaultMcpTools?: boolean;
   nameSeparator?: string; // Separator used between server name and tool/prompt name (default: '-')
   oauth?: OAuthProviderConfig; // OAuth provider configuration for upstream MCP servers
   oauthServer?: OAuthServerConfig; // OAuth authorization server configuration for MCPHub itself
@@ -574,6 +575,70 @@ export interface StoredCredentialBinding {
   username: string;
   encryptedValues: string;
   updatedAt: string;
+}
+
+export interface VaultAccount {
+  id: string;
+  username: string;
+  hasPassword: boolean;
+}
+
+export interface VaultToken {
+  id: string;
+  name: string;
+}
+
+export interface StoredVaultEntry {
+  id: string;
+  owner: string;
+  name: string;
+  description?: string | null;
+  tags?: string[] | null;
+  url?: string | null;
+  host?: string | null;
+  port?: number | null;
+  image?: string | null;
+  accounts: VaultAccount[];
+  tokens?: VaultToken[] | null;
+  hasBearerToken?: boolean;
+  starred?: boolean;
+  encryptedSecrets: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaultSecrets {
+  passwords: Record<string, string>;
+  tokens: Record<string, string>;
+}
+
+export type VaultEntrySummary = Omit<
+  StoredVaultEntry,
+  'owner' | 'encryptedSecrets' | 'tokens' | 'hasBearerToken' | 'starred'
+> & { tokens: VaultToken[]; starred: boolean };
+
+export interface VaultAccountInput {
+  id?: string;
+  username: string;
+  password?: string;
+}
+
+export interface VaultTokenInput {
+  id?: string;
+  name?: string;
+  token?: string;
+}
+
+export interface VaultEntryInput {
+  name: string;
+  description?: string | null;
+  tags?: string[] | null;
+  url?: string | null;
+  host?: string | null;
+  port?: number | string | null;
+  image?: string | null;
+  accounts?: VaultAccountInput[];
+  tokens?: VaultTokenInput[];
 }
 
 // Configuration details for an individual server

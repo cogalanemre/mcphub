@@ -5,6 +5,7 @@ describe('navigation locale strings', () => {
   const requiredNavKeys = [
     'dashboard',
     'servers',
+    'vault',
     'groups',
     'market',
     'prompts',

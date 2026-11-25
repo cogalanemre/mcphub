@@ -225,6 +225,7 @@ export async function migrateToDatabase(seedServersAndGroups = true): Promise<bo
       const systemConfig = {
         dashboardName: settings.systemConfig.dashboardName,
         normalizeToolNames: settings.systemConfig.normalizeToolNames,
+        vaultMcpTools: settings.systemConfig.vaultMcpTools,
         toolPolicies: settings.systemConfig.toolPolicies,
         network: settings.systemConfig.network || {},
         // the legacy bearerAuthKey is migrated to a hashed bearer key below

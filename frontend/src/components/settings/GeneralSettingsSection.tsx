@@ -44,6 +44,7 @@ export const GeneralSettingsSection: React.FC<GeneralSettingsSectionProps> = ({
   const {
     nameSeparator,
     normalizeToolNames,
+    vaultMcpTools,
     enableSessionRebuild,
     storeToolPayload,
     initialLoading,
@@ -52,6 +53,7 @@ export const GeneralSettingsSection: React.FC<GeneralSettingsSectionProps> = ({
     isSectionSaving,
     updateNameSeparator,
     updateNormalizeToolNames,
+    updateVaultMcpTools,
     updateSessionRebuild,
     updateStoreToolPayload,
   } = useSettingsActions();
@@ -122,6 +124,7 @@ export const GeneralSettingsSection: React.FC<GeneralSettingsSectionProps> = ({
   const togglesBusy =
     initialLoading ||
     isSectionSaving('normalizeToolNames') ||
+    isSectionSaving('vaultMcpTools') ||
     isSectionSaving('sessionRebuild') ||
     isSectionSaving('storeToolPayload');
 
@@ -257,6 +260,15 @@ export const GeneralSettingsSection: React.FC<GeneralSettingsSectionProps> = ({
               checked={normalizeToolNames}
               disabled={togglesBusy}
               onCheckedChange={(checked) => void updateNormalizeToolNames(checked)}
+            />
+
+            <SettingsToggleRow
+              id="vault-mcp-tools"
+              label={t('settings.vaultMcpTools')}
+              description={t('settings.vaultMcpToolsDescription')}
+              checked={vaultMcpTools}
+              disabled={togglesBusy}
+              onCheckedChange={(checked) => void updateVaultMcpTools(checked)}
             />
 
             <SettingsToggleRow

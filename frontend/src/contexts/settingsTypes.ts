@@ -15,6 +15,7 @@ export type SettingsSectionKey =
   | 'betterAuth'
   | 'nameSeparator'
   | 'normalizeToolNames'
+  | 'vaultMcpTools'
   | 'sessionRebuild'
   | 'toolPolicies'
   | 'fakeIpExceptions'
@@ -143,6 +144,7 @@ export interface SystemSettings {
     fileStaging?: FileStagingConfig;
     mcpRouter?: MCPRouterConfig;
     normalizeToolNames?: boolean;
+    vaultMcpTools?: boolean;
     nameSeparator?: string;
     oauthServer?: OAuthServerConfig;
     auth?: {
@@ -186,6 +188,7 @@ export interface RuntimeSettingsContextValue {
   allowRegistration: boolean;
   betterAuthConfig: BetterAuthConfig;
   normalizeToolNames: boolean;
+  vaultMcpTools: boolean;
   nameSeparator: string;
   skillImportProxy: string;
   enableSessionRebuild: boolean;
@@ -251,6 +254,7 @@ export interface SettingsActionsContextValue {
   updateBetterAuthConfigBatch: (updates: Partial<BetterAuthConfig>) => Promise<boolean | undefined>;
   updateNameSeparator: (value: string) => Promise<boolean | undefined>;
   updateNormalizeToolNames: (value: boolean) => Promise<boolean | undefined>;
+  updateVaultMcpTools: (value: boolean) => Promise<boolean | undefined>;
   updateSessionRebuild: (value: boolean) => Promise<boolean | undefined>;
   updateFakeIpExceptions: (value: FakeIpException[]) => Promise<boolean>;
   updateAllowedCidrs: (value: string[]) => Promise<boolean>;

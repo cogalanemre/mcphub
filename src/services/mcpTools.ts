@@ -57,7 +57,7 @@ import {
   isSmartRoutingGroup,
 } from './smartRoutingService.js';
 import { containsStagingRef } from './fileStaging/dispatch.js';
-import { isReservedStagingName } from './fileStaging/tools.js';
+import { isReservedHubToolName } from './hubToolNames.js';
 
 interface ToolRoutingDependencies {
   getVisibleServerInfos(): ServerInfo[];
@@ -99,7 +99,7 @@ interface ToolRoutingDependencies {
     extra?: Pick<ServerContext, 'mcpReq'>,
   ): ReturnType<Client['callTool']>;
   withoutHiddenArguments<T>(info: ServerInfo, toolName: string, args: T): T;
-  withStagingTools(group: string | undefined, tools: Tool[], extra: unknown): Promise<Tool[]>;
+  withHubTools(group: string | undefined, tools: Tool[], extra: unknown): Promise<Tool[]>;
 }
 
 const summarizeToolRequestForLogging = (params: any): Record<string, unknown> => ({
@@ -203,7 +203,7 @@ export const createToolHandlers = (dependencies: ToolRoutingDependencies) => {
     getOrCreateIsolatedClient,
     callToolWithReconnect,
     withoutHiddenArguments,
-    withStagingTools,
+    withHubTools,
   } = dependencies;
 
   // Get server by tool name
@@ -467,8 +467,8 @@ export const createToolHandlers = (dependencies: ToolRoutingDependencies) => {
       // calls them directly, and the meta-tools cannot reach a hub built-in.
       // Pins go through the same filter, so a pinned upstream tool that shadows
       // `mcphub_file_*` is dropped instead of listed beside the hub definition.
-      const routeTools = await withStagingTools(group, pinnedTools, extra);
-      const injected = routeTools.some((tool) => isReservedStagingName(tool.name));
+      const routeTools = await withHubTools(group, pinnedTools, extra);
+      const injected = routeTools.some((tool) => isReservedHubToolName(tool.name));
       // Nothing to add: return the generator's own object, so callers that
       // compare the response by identity keep working.
       if (pinnedTools.length === 0 && !injected) return smartRoutingTools;
@@ -486,10 +486,10 @@ export const createToolHandlers = (dependencies: ToolRoutingDependencies) => {
       serverConfigsByName,
       appsRouteContext,
     );
-    const tools = await withStagingTools(group, listed, extra);
+    const tools = await withHubTools(group, listed, extra);
     // Hub tools are generated per route, not part of the upstream snapshot, so
     // the list must not be cached across calls.
-    return tools.some((tool) => isReservedStagingName(tool.name))
+    return tools.some((tool) => isReservedHubToolName(tool.name))
       ? { tools, stagingTools: true }
       : { tools };
   };
@@ -676,7 +676,7 @@ export const createToolHandlers = (dependencies: ToolRoutingDependencies) => {
         const result = await handleSearchToolsRequest(query, limit, sessionId, group);
         // Hub built-ins are not in the vector index, so a $smart client would
         // never discover the staging tools from search alone (#1056 PR3).
-        const stagingTools = await withStagingTools(group, [], extra);
+        const stagingTools = await withHubTools(group, [], extra);
         if (stagingTools.length === 0) return result;
         return appendStagingToolsToSearchResult(result, stagingTools);
       }

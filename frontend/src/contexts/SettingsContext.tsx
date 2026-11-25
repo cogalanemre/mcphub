@@ -291,6 +291,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   );
 
   const [normalizeToolNames, setNormalizeToolNames] = useState(false);
+  const [vaultMcpTools, setVaultMcpTools] = useState(false);
   const [nameSeparator, setNameSeparator] = useState<string>('-');
   const [skillImportProxy, setSkillImportProxy] = useState('server');
   const [enableSessionRebuild, setEnableSessionRebuild] = useState<boolean>(false);
@@ -481,6 +482,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         setFakeIpExceptions(data.data?.systemConfig?.network?.fakeIpExceptions ?? []);
         setAllowedCidrs(data.data?.systemConfig?.network?.allowedCidrs ?? []);
         setNormalizeToolNames(data.data?.systemConfig?.normalizeToolNames === true);
+        setVaultMcpTools(data.data?.systemConfig?.vaultMcpTools === true);
         setSkillImportProxy(data.data?.systemConfig?.install?.skillImportProxy ?? 'server');
       }
       if (data.success && data.data?.systemConfig?.nameSeparator !== undefined) {
@@ -771,6 +773,18 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     [runSystemConfigUpdate],
   );
 
+  const updateVaultMcpTools = useCallback(
+    async (value: boolean) =>
+      runSystemConfigUpdate(
+        'vaultMcpTools',
+        { vaultMcpTools: value },
+        () => setVaultMcpTools(value),
+        'settings.vaultMcpToolsUpdateFailed',
+        'Failed to update the vault MCP tools setting',
+      ),
+    [runSystemConfigUpdate],
+  );
+
   const updateSessionRebuild = useCallback(
     async (value: boolean) =>
       runSystemConfigUpdate(
@@ -969,6 +983,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       allowRegistration,
       betterAuthConfig,
       normalizeToolNames,
+      vaultMcpTools,
       nameSeparator,
       skillImportProxy,
       enableSessionRebuild,
@@ -990,6 +1005,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       allowRegistration,
       betterAuthConfig,
       normalizeToolNames,
+      vaultMcpTools,
       nameSeparator,
       skillImportProxy,
       enableSessionRebuild,
@@ -1031,6 +1047,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       updateBetterAuthConfigBatch,
       updateNameSeparator,
       updateNormalizeToolNames,
+      updateVaultMcpTools,
       updateSessionRebuild,
       updateFakeIpExceptions,
       updateAllowedCidrs,
@@ -1068,6 +1085,7 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
       updateBetterAuthConfigBatch,
       updateNameSeparator,
       updateNormalizeToolNames,
+      updateVaultMcpTools,
       updateSessionRebuild,
       updateFakeIpExceptions,
       updateAllowedCidrs,

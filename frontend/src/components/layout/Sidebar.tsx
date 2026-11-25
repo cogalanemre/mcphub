@@ -5,6 +5,7 @@ import {
   Activity,
   Blocks,
   FileText,
+  KeyRound,
   LayoutGrid,
   MessageSquare,
   Route as RouteIcon,
@@ -37,6 +38,7 @@ interface SidebarProps {
 const SIDEBAR_ICON_MAP: Partial<Record<NavIconId, React.ReactNode>> = {
   dashboard: <LayoutGrid className="h-4 w-4" aria-hidden="true" />,
   servers: <ServerIcon className="h-4 w-4" aria-hidden="true" />,
+  vault: <KeyRound className="h-4 w-4" aria-hidden="true" />,
   groups: <RouteIcon className="h-4 w-4" aria-hidden="true" />,
   market: <Store className="h-4 w-4" aria-hidden="true" />,
   prompts: <MessageSquare className="h-4 w-4" aria-hidden="true" />,

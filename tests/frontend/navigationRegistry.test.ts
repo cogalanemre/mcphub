@@ -46,7 +46,7 @@ describe('navigationRegistry', () => {
     });
 
     expect(sections.map((s) => s.id)).toEqual(['workspace', 'capabilities', 'system']);
-    expect(sections[0].items.map((i) => i.id)).toEqual(['dashboard', 'servers', 'groups', 'market']);
+    expect(sections[0].items.map((i) => i.id)).toEqual(['dashboard', 'servers', 'vault', 'groups', 'market']);
     expect(sections[1].items.map((i) => i.id)).toEqual(['prompts', 'resources', 'skills']);
     expect(sections[2].items.map((i) => i.id)).toEqual(['users', 'activity', 'logs', 'settings']);
   });

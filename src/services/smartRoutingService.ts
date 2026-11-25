@@ -26,7 +26,7 @@ import { canServeToolRequests } from '../utils/serverAvailability.js';
 import { getNameSeparator } from '../config/index.js';
 import { logger } from '../utils/logger.js';
 import { applyHiddenParams, findToolConfig } from '../utils/toolConfig.js';
-import { STAGING_TOOL_DEFINITIONS } from './fileStaging/tools.js';
+import { HUB_TOOL_DEFINITIONS } from './hubToolNames.js';
 
 // Reference to serverInfos from mcpService - will be set via init
 let serverInfosRef: ServerInfo[] = [];
@@ -742,7 +742,7 @@ export const handleDescribeToolRequest = async (
   // Hub built-ins are not in the vector index: describe them from their static
   // definition instead of reporting "not found" (#1056 PR3). The envelope must
   // match the ordinary path or MCP clients cannot read the answer.
-  const builtin = STAGING_TOOL_DEFINITIONS.find((tool) => tool.name === toolName);
+  const builtin = HUB_TOOL_DEFINITIONS.find((tool) => tool.name === toolName);
   if (builtin) {
     return {
       content: [

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { getSettingsPath } from '../config/index.js';
-import { getCredentialBindingDao } from '../dao/DaoFactory.js';
+import { getCredentialBindingDao, getVaultEntryDao } from '../dao/DaoFactory.js';
 import { RequestContextService } from './requestContextService.js';
 import { getT } from '../utils/i18n.js';
 import { isDatabaseModeEnabled } from '../utils/systemConfigCache.js';
@@ -30,7 +30,7 @@ const parseEncryptionKey = (encoded: string): Buffer => {
   return key;
 };
 
-const encryptionKey = async (allowCreate = false): Promise<Buffer> => {
+export const credentialEncryptionKey = async (allowCreate = false): Promise<Buffer> => {
   const configured = process.env.MCPHUB_CREDENTIAL_ENCRYPTION_KEY;
   if (configured !== undefined) return parseEncryptionKey(configured);
   const file = `${getSettingsPath()}.credentials.key`;
@@ -57,7 +57,8 @@ const encryptionKey = async (allowCreate = false): Promise<Buffer> => {
       'Database mode requires MCPHUB_CREDENTIAL_ENCRYPTION_KEY before saving personal credentials. Configure a persistent 32-byte base64 key; if bindings already exist, restore their original key. Automatic local key generation is disabled because container replacement can lose the key',
     );
   }
-  const hasBindings = await getCredentialBindingDao().hasBindings();
+  const hasBindings =
+    (await getCredentialBindingDao().hasBindings()) || (await getVaultEntryDao().hasEntries());
   // Another process may have created the key while storage was being checked.
   const createdElsewhere = readKey();
   if (createdElsewhere) return createdElsewhere;
@@ -95,7 +96,7 @@ export const encryptCredentialValues = async (
   values: Record<string, string>,
 ): Promise<string> => {
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', await encryptionKey(true), iv);
+  const cipher = createCipheriv('aes-256-gcm', await credentialEncryptionKey(true), iv);
   cipher.setAAD(bindingIdentity(serverName, username));
   const ciphertext = Buffer.concat([cipher.update(JSON.stringify(values), 'utf8'), cipher.final()]);
   return [
@@ -109,7 +110,7 @@ export const encryptCredentialValues = async (
 export const decryptCredentialValues = async (
   binding: StoredCredentialBinding,
 ): Promise<Record<string, string>> => {
-  const key = await encryptionKey();
+  const key = await credentialEncryptionKey();
   try {
     const [version, iv, tag, ciphertext] = binding.encryptedValues.split('.');
     if (version !== 'v1') throw new Error('Unsupported version');

@@ -2,6 +2,7 @@ import { OAuthApprovalDaoDbImpl } from './OAuthApprovalDaoDbImpl.js';
 import { PasskeyDaoDbImpl } from './PasskeyDaoDbImpl.js';
 import { CapabilitySnapshotDaoDbImpl } from './CapabilitySnapshotDaoDbImpl.js';
 import { CredentialBindingDaoDbImpl } from './CredentialBindingDaoDbImpl.js';
+import { VaultEntryDaoDbImpl } from './VaultEntryDaoDbImpl.js';
 import {
   DaoFactory,
   UserDao,
@@ -73,6 +74,10 @@ export class DatabaseDaoFactory implements DaoFactory {
 
   getCredentialBindingDao(): CredentialBindingDaoDbImpl {
     return new CredentialBindingDaoDbImpl();
+  }
+
+  getVaultEntryDao(): VaultEntryDaoDbImpl {
+    return new VaultEntryDaoDbImpl();
   }
 
   getUserDao(): UserDao {

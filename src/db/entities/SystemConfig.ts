@@ -36,6 +36,9 @@ export class SystemConfig {
   @Column({ type: 'boolean', nullable: true })
   normalizeToolNames?: boolean;
 
+  @Column({ type: 'boolean', nullable: true })
+  vaultMcpTools?: boolean;
+
   @Column({ type: 'varchar', length: 10, nullable: true })
   nameSeparator?: string;
 

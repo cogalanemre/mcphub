@@ -40,6 +40,7 @@ jest.mock('../../src/dao/index.js', () => ({
       passkeys = passkeys.filter((row) => row.username !== username);
     },
   }),
+  getVaultEntryDao: () => ({ deleteByOwner: async () => undefined }),
   getUserDao: () => ({
     findAll: async () => users,
     findByUsername: async (username: string) => users.find((user) => user.username === username),

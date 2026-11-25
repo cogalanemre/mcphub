@@ -126,6 +126,7 @@ interface KeyValueListEditorProps {
   valuePlaceholder: string;
   getRemoveAriaLabel: (index: number) => string;
   separator?: string;
+  renderValue?: (item: EnvVar, onValueChange: (value: string) => void) => React.ReactNode;
 }
 
 export const KeyValueListEditor: React.FC<KeyValueListEditorProps> = ({
@@ -139,6 +140,7 @@ export const KeyValueListEditor: React.FC<KeyValueListEditorProps> = ({
   valuePlaceholder,
   getRemoveAriaLabel,
   separator = ':',
+  renderValue,
 }) => (
   <div>
     <div className="flex items-center justify-between gap-2 mb-2">
@@ -160,13 +162,17 @@ export const KeyValueListEditor: React.FC<KeyValueListEditorProps> = ({
               placeholder={keyPlaceholder}
             />
             <span className="text-xs text-[var(--hub-ink-3)] select-none">{separator}</span>
-            <input
-              type="text"
-              value={item.value}
-              onChange={(e) => onChange(index, 'value', e.target.value)}
-              className={`${FORM_CONTROL_CLASS} flex-1 min-w-0`}
-              placeholder={valuePlaceholder}
-            />
+            {renderValue ? (
+              renderValue(item, (value) => onChange(index, 'value', value))
+            ) : (
+              <input
+                type="text"
+                value={item.value}
+                onChange={(e) => onChange(index, 'value', e.target.value)}
+                className={`${FORM_CONTROL_CLASS} flex-1 min-w-0`}
+                placeholder={valuePlaceholder}
+              />
+            )}
             <button
               type="button"
               onClick={() => onRemove(index)}

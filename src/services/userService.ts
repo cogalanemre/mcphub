@@ -1,4 +1,4 @@
-import { getOAuthApprovalDao, getPasskeyDao } from '../dao/index.js';
+import { getOAuthApprovalDao, getPasskeyDao, getVaultEntryDao } from '../dao/index.js';
 import { revokeUserTokens } from '../models/OAuth.js';
 import { IUser } from '../types/index.js';
 import { getBearerKeyDao, getUserDao, getGroupDao, getServerDao } from '../dao/index.js';
@@ -127,6 +127,7 @@ export const deleteUser = async (username: string): Promise<boolean> => {
       await revokeUserTokens(username);
       await getOAuthApprovalDao().deleteByUsername(username);
       await getPasskeyDao().deleteByUsername(username);
+      await getVaultEntryDao().deleteByOwner(username);
       const groupDao = getGroupDao();
       for (const group of await groupDao.findAll()) {
         if (group.sharedWithUsers?.includes(username)) {

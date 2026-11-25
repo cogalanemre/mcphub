@@ -11,6 +11,7 @@ export type NavSectionId = 'workspace' | 'capabilities' | 'system';
 export type NavIconId =
   | 'dashboard'
   | 'servers'
+  | 'vault'
   | 'groups'
   | 'market'
   | 'prompts'
@@ -86,6 +87,13 @@ export const SIDEBAR_SECTIONS: NavSectionMeta[] = [
         icon: 'servers',
         access: 'authenticated',
         badgeKey: 'servers',
+      },
+      {
+        id: 'vault',
+        path: '/vault',
+        labelKey: 'nav.vault',
+        icon: 'vault',
+        access: 'authenticated',
       },
       {
         id: 'groups',

@@ -14,7 +14,7 @@ import { getGroupByIdOrName } from '../services/groupService.js';
 import config, { getNameSeparator } from '../config/index.js';
 import { convertParametersToTypes } from '../utils/parameterConversion.js';
 import { logger } from '../utils/logger.js';
-import { isReservedStagingName } from '../services/fileStaging/tools.js';
+import { isReservedHubToolName } from '../services/hubToolNames.js';
 import { getServerDao, getSystemConfigDao } from '../dao/index.js';
 import { findBearerScopeGroup, validateBearerAuth } from '../services/sseService.js';
 import { UserContextService } from '../services/userContextService.js';
@@ -155,7 +155,7 @@ export const executeToolViaOpenAPI = async (req: Request, res: Response): Promis
 
     // Hub built-ins are MCP-only in PR1; the OpenAPI surface is a dashboard
     // integration and must not mint staging capabilities.
-    if (isReservedStagingName(toolName)) {
+    if (isReservedHubToolName(toolName)) {
       res.status(400).json({ success: false, message: 'Unknown tool' });
       return;
     }

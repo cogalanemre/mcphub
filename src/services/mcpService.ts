@@ -40,6 +40,15 @@ import {
   isReservedStagingName,
   isStagingToolName,
 } from './fileStaging/tools.js';
+import { isReservedHubToolName } from './hubToolNames.js';
+import {
+  VAULT_TOOL_DEFINITIONS,
+  isReservedVaultName,
+  isVaultToolName,
+} from './vaultToolDefinitions.js';
+import { executeVaultTool } from './vaultTools.js';
+import { vaultEvents, type VaultTokensChanged } from './vaultEvents.js';
+import { findServersUsingVaultEntry, resolveVaultHeaderReferences } from './vaultService.js';
 import { isDeepStrictEqual } from 'node:util';
 import { isReplicaMode } from '../utils/replicaMode.js';
 import { withKeyedLock, withReplicaLock } from './replicaLock.js';
@@ -1784,7 +1793,7 @@ export const createTransportFromConfig = async (
     let headers = conf.headers
       ? hasPersonalAuthentication(conf)
         ? conf.headers
-        : replaceEnvVars(conf.headers, env)
+        : await resolveVaultHeaderReferences(replaceEnvVars(conf.headers, env), conf.owner)
       : {};
     const baseFetch = createAbortIsolatingFetch(createFetchWithProxy(getProxyConfigFromEnv(env)));
     const requestAwareFetch = createRedirectValidatingFetch(
@@ -1827,7 +1836,7 @@ export const createTransportFromConfig = async (
     let headers = conf.headers
       ? hasPersonalAuthentication(conf)
         ? conf.headers
-        : replaceEnvVars(conf.headers, env)
+        : await resolveVaultHeaderReferences(replaceEnvVars(conf.headers, env), conf.owner)
       : {};
     const baseFetch = createAbortIsolatingFetch(createFetchWithProxy(getProxyConfigFromEnv(env)));
     const requestAwareFetch = createRedirectValidatingFetch(
@@ -3313,6 +3322,25 @@ export const stopPackageUpdateSweep = (): void => {
 // Reinstall server: clear package cache and reconnect.
 // For npx: deletes ~/.npm/_npx before reconnect (--ignore-existing removed in npm 7+).
 // For uvx: schedules --refresh flag injection on next spawn via pendingReinstalls Set.
+vaultEvents.on('tokensChanged', ({ owner, entryId }: VaultTokensChanged) => {
+  void (async () => {
+    try {
+      for (const serverName of await findServersUsingVaultEntry(owner, entryId)) {
+        await reconnectServer(serverName).catch((error) =>
+          logger.warn('Failed to reconnect a server after its vault token changed', {
+            serverName,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      }
+    } catch (error) {
+      logger.warn('Failed to find servers using a changed vault entry', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  })();
+});
+
 export const reinstallServer = async (serverName: string): Promise<void> => {
   logger.log(`Reinstalling server: ${serverName}`);
 
@@ -3908,6 +3936,61 @@ const withStagingTools = async (
   return [...injected, ...tools.filter((tool) => !isReservedStagingName(tool.name))];
 };
 
+const vaultMcpToolsEnabled = async (): Promise<boolean> => {
+  try {
+    return (await getSystemConfigDao().get())?.vaultMcpTools === true;
+  } catch {
+    return false;
+  }
+};
+
+const withVaultTools = async (tools: Tool[], extra: any): Promise<Tool[]> => {
+  if (!stagingAskUsername(extra) || !(await vaultMcpToolsEnabled())) return tools;
+  const shadowed = tools.filter((tool) => isReservedVaultName(tool.name));
+  if (shadowed.length > 0) {
+    logger.warn(
+      `[vault] upstream tools shadowed by the reserved hub namespace: ${shadowed
+        .map((tool) => tool.name)
+        .join(', ')}`,
+    );
+  }
+  const injected = VAULT_TOOL_DEFINITIONS.map((tool) => ({
+    name: tool.name,
+    title: tool.title,
+    description: tool.description,
+    inputSchema: tool.inputSchema as unknown as Tool['inputSchema'],
+  }));
+  return [...injected, ...tools.filter((tool) => !isReservedVaultName(tool.name))];
+};
+
+const withHubTools = async (
+  group: string | undefined,
+  tools: Tool[],
+  extra: any,
+): Promise<Tool[]> => withVaultTools(await withStagingTools(group, tools, extra), extra);
+
+const handleHubVaultCall = async (request: any, extra: any) => {
+  const name = request?.params?.name;
+  if (!isVaultToolName(name)) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: 'Unknown hub built-in tool' }],
+    };
+  }
+  if (!(await vaultMcpToolsEnabled())) {
+    return { isError: true, content: [{ type: 'text', text: 'Vault MCP tools are not enabled' }] };
+  }
+  const username = stagingAskUsername(extra);
+  if (!username) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: 'A signed-in user is required for the vault' }],
+    };
+  }
+  logger.log('[vault] hub tool call', { tool: name, username });
+  return executeVaultTool(name, request?.params?.arguments ?? {}, username);
+};
+
 /**
  * A remote client cannot resolve the hub's localhost, so staging links require
  * the configured install base URL (design §8.1). The dashboard default is
@@ -4026,7 +4109,7 @@ const { handleListToolsRequestImpl, handleCallToolRequestImpl, resolvePinnedSmar
     getOrCreateIsolatedClient,
     callToolWithReconnect,
     withoutHiddenArguments,
-    withStagingTools,
+    withHubTools,
   });
 
 const { handleGetPromptRequestImpl, handleListPromptsRequestImpl } = createPromptHandlers({
@@ -4852,7 +4935,7 @@ const handleOriginalToolCallRequest = (request: any, extra: any, policyGroupId?:
   // exception: describing a hub built-in is how a $smart client learns its
   // schema, and it never executes anything.
   if (
-    isReservedStagingName(request?.params?.arguments?.toolName) &&
+    isReservedHubToolName(request?.params?.arguments?.toolName) &&
     request?.params?.name !== 'describe_tool'
   ) {
     return Promise.resolve({
@@ -4865,22 +4948,24 @@ const handleOriginalToolCallRequest = (request: any, extra: any, policyGroupId?:
   // unrelated upstream list, or be filtered as an upstream tool.
   return isReservedStagingName(request?.params?.name)
     ? handleHubStagingCall(request, extra)
-    : observeToolCall(() =>
-        withReplicaServerScope(() =>
-          withToolPolicy(
-            callToolWithPrincipal,
-            request,
-            policyGroupId === undefined ? extra : { ...extra, policyGroupId },
-            true,
-            policyGroupId,
+    : isReservedVaultName(request?.params?.name)
+      ? handleHubVaultCall(request, extra)
+      : observeToolCall(() =>
+          withReplicaServerScope(() =>
+            withToolPolicy(
+              callToolWithPrincipal,
+              request,
+              policyGroupId === undefined ? extra : { ...extra, policyGroupId },
+              true,
+              policyGroupId,
+            ),
           ),
-        ),
-      );
+        );
 };
 export const handleCallToolRequest = async (request: any, extra: any, policyGroupId?: string) => {
   if (
-    isReservedStagingName(request?.params?.name) ||
-    isReservedStagingName(request?.params?.arguments?.toolName)
+    isReservedHubToolName(request?.params?.name) ||
+    isReservedHubToolName(request?.params?.arguments?.toolName)
   ) {
     return handleOriginalToolCallRequest(request, extra, policyGroupId);
   }

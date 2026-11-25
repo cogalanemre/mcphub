@@ -18,6 +18,14 @@ import {
   listUserCredentials,
   updateUserCredential,
 } from '../controllers/credentialBindingController.js';
+import {
+  createMyVaultEntry,
+  deleteMyVaultEntry,
+  listMyVaultEntries,
+  revealMyVaultSecrets,
+  starMyVaultEntry,
+  updateMyVaultEntry,
+} from '../controllers/vaultController.js';
 import express from 'express';
 import { check } from 'express-validator';
 import config from '../config/index.js';
@@ -355,6 +363,12 @@ export const initRoutes = async (app: express.Application): Promise<void> => {
   authenticatedRouter.get('/credentials', listMyCredentials);
   authenticatedRouter.put('/credentials/:name', updateMyCredential);
   authenticatedRouter.delete('/credentials/:name', updateMyCredential);
+  authenticatedRouter.get('/vault', listMyVaultEntries);
+  authenticatedRouter.post('/vault', createMyVaultEntry);
+  authenticatedRouter.put('/vault/:id', updateMyVaultEntry);
+  authenticatedRouter.put('/vault/:id/star', starMyVaultEntry);
+  authenticatedRouter.delete('/vault/:id', deleteMyVaultEntry);
+  authenticatedRouter.get('/vault/:id/secrets', revealMyVaultSecrets);
   authenticatedRouter.get('/oauth/approvals', listMyOAuthApprovals);
   authenticatedRouter.delete('/oauth/approvals/:approvalId', revokeMyOAuthApproval);
   authenticatedRouter.get('/servers', getAllServers);

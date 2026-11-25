@@ -18,6 +18,7 @@ import BuiltinPrompt from './BuiltinPrompt.js';
 import BuiltinResource from './BuiltinResource.js';
 import { FileStagingRefEntity } from './FileStagingRef.js';
 import { FileStagingTokenEntity } from './FileStagingToken.js';
+import { VaultEntry } from './VaultEntry.js';
 
 // Export all entities
 export default [
@@ -41,6 +42,7 @@ export default [
   BuiltinResource,
   FileStagingRefEntity,
   FileStagingTokenEntity,
+  VaultEntry,
 ];
 
 // Export individual entities for direct use
@@ -65,4 +67,5 @@ export {
   BuiltinResource,
   FileStagingRefEntity,
   FileStagingTokenEntity,
+  VaultEntry,
 };

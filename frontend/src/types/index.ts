@@ -221,6 +221,62 @@ export interface CredentialSlot {
   label?: string;
 }
 
+export interface VaultAccount {
+  id: string;
+  username: string;
+  hasPassword: boolean;
+}
+
+export interface VaultToken {
+  id: string;
+  name: string;
+}
+
+export interface VaultEntry {
+  id: string;
+  name: string;
+  description: string | null;
+  tags: string[];
+  url: string | null;
+  host: string | null;
+  port: number | null;
+  image: string | null;
+  accounts: VaultAccount[];
+  tokens: VaultToken[];
+  starred: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaultSecrets {
+  passwords: Record<string, string>;
+  tokens: Record<string, string>;
+}
+
+export interface VaultAccountInput {
+  id?: string;
+  username: string;
+  password?: string;
+}
+
+export interface VaultTokenInput {
+  id?: string;
+  name: string;
+  token?: string;
+}
+
+export interface VaultEntryInput {
+  name: string;
+  description: string;
+  tags: string[];
+  url: string;
+  host: string;
+  port: string;
+  image: string | null;
+  accounts: VaultAccountInput[];
+  tokens: VaultTokenInput[];
+}
+
 export interface MyCredentialBinding {
   serverName: string;
   credentialTemplate: CredentialSlot[];

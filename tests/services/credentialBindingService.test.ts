@@ -22,6 +22,7 @@ import type { ServerConfig } from '../../src/types/index.js';
 
 jest.mock('../../src/dao/DaoFactory.js', () => ({
   getCredentialBindingDao: () => new CredentialBindingDaoImpl(),
+  getVaultEntryDao: () => ({ hasEntries: async () => false }),
 }));
 const stdio: ServerConfig = {
   type: 'stdio',
